@@ -4,6 +4,7 @@
 #include <http_core.h>
 #include <http_protocol.h>
 #include <http_request.h>
+#include <http_log.h>
 
 #include <apr.h>
 #include <apr_strings.h>
@@ -14,8 +15,8 @@
 #include <CommonCrypto/CommonDigest.h>
 
 typedef enum {
-  S_OK,
-  S_FAILED
+  S_FAILED,
+  S_OK
 } verify_success;
 
 static void signatura_write_error_message(request_rec *request, const char *message)
@@ -43,7 +44,7 @@ const static void signatura_hash(const char *input, char *result)
 
 const char * signatura_lookup_secret(request_rec *request, const char *key_id)
 {
-  return "";
+  return "so-secret";
 }
 
 static verify_success signatura_signature_valid(request_rec *request, const char *key_id, const char *expires, const char *signature)
@@ -68,7 +69,6 @@ static verify_success signatura_signature_valid(request_rec *request, const char
     }
 
   } else {
-
     char *message = apr_palloc(request->pool, 1024);
 
     sprintf(message, "Can't find secret for the key ID `%s'", key_id);
@@ -81,10 +81,11 @@ static verify_success signatura_signature_valid(request_rec *request, const char
 
 static verify_success signatura_not_expired(request_rec *request, const char *expires)
 {
-  long expires_as_int = atol(expires);
-  long since_epoch = (long)localtime(NULL);
+  long expires_as_long = atol(expires);
+  long current_as_long = (long)time(NULL);
 
-  if (expires_as_int < since_epoch) {
+  if (expires_as_long < current_as_long) {
+    signatura_write_error_message(request, "The timestamp in the `expires' request parameter is in the past.");
     return S_FAILED;
   } else {
     return S_OK;
@@ -147,7 +148,8 @@ static int signatura_request_handler(request_rec *request)
    * directories which need security
    */
   if (signatura_verify_request(request)) {
-    return OK; 
+    /* Don't expect a response from this module, carry on. */
+    return DECLINED;
   } else {
     return HTTP_FORBIDDEN;
   }
@@ -155,7 +157,7 @@ static int signatura_request_handler(request_rec *request)
 
 static void signatura_register_hooks(apr_pool_t *pool)
 {
-  ap_hook_handler(signatura_request_handler, NULL, NULL, APR_HOOK_LAST);
+  ap_hook_handler(signatura_request_handler, NULL, NULL, APR_HOOK_FIRST);
 }
 
 module AP_MODULE_DECLARE_DATA signatura_module = { 
