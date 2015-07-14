@@ -135,7 +135,7 @@ static verify_success signatura_verify_request(request_rec *request)
   }
 
   if (strlen(signature) > 80) {
-    signatura_write_error_message(request, "Maximum size for the `signaure' query parameter is 80 bytes.");
+    signatura_write_error_message(request, "Maximum size for the `signature' query parameter is 80 bytes.");
     return S_FAILED;
   }
 
